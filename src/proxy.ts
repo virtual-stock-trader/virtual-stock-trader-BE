@@ -1,23 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+const allowedOrigins = (process.env.CORS_ORIGIN ?? 'http://localhost:5173').split(',').map((o) => o.trim())
+
+const corsHeaders = {
+  'Access-Control-Allow-Methods': 'GET,POST,PATCH,DELETE,OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+}
+
 export function proxy(req: NextRequest) {
-  const origin = process.env.CORS_ORIGIN ?? 'http://localhost:5173'
+  const origin = req.headers.get('origin') ?? ''
+  const isAllowed = allowedOrigins.includes(origin)
 
   if (req.method === 'OPTIONS') {
-    return new NextResponse(null, {
-      status: 204,
-      headers: {
-        'Access-Control-Allow-Origin': origin,
-        'Access-Control-Allow-Methods': 'GET,POST,PATCH,DELETE,OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    return NextResponse.json(
+      {},
+      {
+        headers: {
+          ...(isAllowed && { 'Access-Control-Allow-Origin': origin }),
+          ...corsHeaders,
+        },
       },
-    })
+    )
   }
 
   const res = NextResponse.next()
-  res.headers.set('Access-Control-Allow-Origin', origin)
-  res.headers.set('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS')
-  res.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  if (isAllowed) {
+    res.headers.set('Access-Control-Allow-Origin', origin)
+  }
+  Object.entries(corsHeaders).forEach(([k, v]) => res.headers.set(k, v))
   return res
 }
 
